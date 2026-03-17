@@ -143,6 +143,8 @@ class AG2ProfilerHandler(BaseProfilerCallback):
     def unpatch(self) -> None:
         """Restore original AG2 methods."""
         with AG2ProfilerHandler._patch_lock:
+            if AG2ProfilerHandler._patch_count <= 0:
+                return
             AG2ProfilerHandler._patch_count -= 1
             if AG2ProfilerHandler._patch_count > 0:
                 return  # Other handlers still active

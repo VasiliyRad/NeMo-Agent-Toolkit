@@ -27,6 +27,7 @@ from autogen import LLMConfig
 from nat.builder import Builder
 from nat.builder.framework_enum import LLMFrameworkEnum
 from nat.cli.register_workflow import register_llm_client
+from nat.data_models.common import get_secret_value
 from nat.llm.azure_openai_llm import AzureOpenAIModelConfig
 from nat.llm.nim_llm import NIMModelConfig
 from nat.llm.openai_llm import OpenAIModelConfig
@@ -43,7 +44,7 @@ async def openai_ag2(
     config_dict = {
         "api_type": "openai",
         "model": llm_config.model,
-        "api_key": llm_config.api_key,
+        "api_key": get_secret_value(llm_config.api_key),
     }
     if llm_config.api_base:
         config_dict["base_url"] = llm_config.api_base
@@ -65,7 +66,7 @@ async def nim_ag2(
     config_dict = {
         "api_type": "openai",
         "model": llm_config.model,
-        "api_key": llm_config.api_key,
+        "api_key": get_secret_value(llm_config.api_key),
         "base_url": (
             llm_config.api_base
             or "https://integrate.api.nvidia.com/v1"
@@ -93,7 +94,7 @@ async def azure_ag2(
     config_dict = {
         "api_type": "azure",
         "model": llm_config.model,
-        "api_key": llm_config.api_key,
+        "api_key": get_secret_value(llm_config.api_key),
         "base_url": llm_config.api_base,
         "api_version": llm_config.api_version,
     }
