@@ -16,7 +16,7 @@
 """Profiler callback handler for AG2.
 
 Patches AG2's OpenAIWrapper to capture LLM call timings and
-token usage for NAT's profiling pipeline.
+token usage for the profiling pipeline.
 """
 
 import threading
@@ -34,11 +34,11 @@ from nat.data_models.token_usage import TokenUsageBaseModel
 
 
 class AG2ProfilerHandler(BaseProfilerCallback):
-    """Instruments AG2 agents for NAT profiling."""
+    """Instruments AG2 agents for profiling."""
 
     _original_create = None
     _patch_lock = threading.Lock()
-    _patch_count = 0
+    _handlers: list["AG2ProfilerHandler"] = []
 
     def __init__(self) -> None:
         """Initialize the AG2ProfilerHandler."""
@@ -56,86 +56,95 @@ class AG2ProfilerHandler(BaseProfilerCallback):
             return
 
         with AG2ProfilerHandler._patch_lock:
-            AG2ProfilerHandler._patch_count += 1
+            AG2ProfilerHandler._handlers.append(self)
             if AG2ProfilerHandler._original_create is not None:
-                return  # Already patched
+                return  # Already patched, just registered
 
             AG2ProfilerHandler._original_create = (
                 OpenAIWrapper.create
             )
 
-        # Use module-level list so multiple handlers can
-        # receive events
-        handler = self
-
         def patched_create(wrapper_self: Any, *args: Any, **kwargs: Any) -> Any:
-            now = time.time()
-            with handler._lock:
-                seconds_between_calls = int(now - handler.last_call_ts)
+            # Capture locally to avoid race with unpatch()
+            original = AG2ProfilerHandler._original_create
+            if original is None:
+                return wrapper_self.create(*args, **kwargs)
+
+            # Snapshot handlers to iterate
+            with AG2ProfilerHandler._patch_lock:
+                handlers = list(AG2ProfilerHandler._handlers)
 
             model_name = kwargs.get("model", "")
+            sanitized_input = {
+                "model": model_name,
+                "message_count": len(kwargs.get("messages", [])),
+            }
 
-            start_payload = IntermediateStepPayload(
-                event_type=IntermediateStepType.LLM_START,
-                framework=LLMFrameworkEnum.AG2,
-                name=model_name,
-                data=StreamEventData(input=str(kwargs)),
-                usage_info=UsageInfo(
-                    token_usage=TokenUsageBaseModel(),
-                    num_llm_calls=1,
-                    seconds_between_calls=seconds_between_calls,
-                ),
-            )
-            start_uuid = start_payload.UUID
-            handler.step_manager.push_intermediate_step(start_payload)
+            # Emit LLM_START to all handlers
+            start_uuids = {}
+            for h in handlers:
+                now = time.time()
+                with h._lock:
+                    seconds_between_calls = int(now - h.last_call_ts)
+                payload = IntermediateStepPayload(
+                    event_type=IntermediateStepType.LLM_START,
+                    framework=LLMFrameworkEnum.AG2,
+                    name=model_name,
+                    data=StreamEventData(input=str(sanitized_input)),
+                    usage_info=UsageInfo(
+                        token_usage=TokenUsageBaseModel(),
+                        num_llm_calls=1,
+                        seconds_between_calls=seconds_between_calls,
+                    ),
+                )
+                start_uuids[id(h)] = payload.UUID
+                h.step_manager.push_intermediate_step(payload)
 
             try:
-                result = (
-                    AG2ProfilerHandler._original_create(
-                        wrapper_self, *args, **kwargs
-                    )
-                )
+                result = original(wrapper_self, *args, **kwargs)
                 end_time = time.time()
-                handler.step_manager.push_intermediate_step(
-                    IntermediateStepPayload(
-                        event_type=IntermediateStepType.LLM_END,
-                        span_event_timestamp=end_time,
-                        framework=LLMFrameworkEnum.AG2,
-                        name=model_name,
-                        data=StreamEventData(
-                            input=str(kwargs),
-                            output=str(result),
-                        ),
-                        usage_info=UsageInfo(
-                            token_usage=TokenUsageBaseModel(),
-                            num_llm_calls=1,
-                            seconds_between_calls=seconds_between_calls,
-                        ),
-                        UUID=start_uuid,
+                for h in handlers:
+                    h.step_manager.push_intermediate_step(
+                        IntermediateStepPayload(
+                            event_type=IntermediateStepType.LLM_END,
+                            span_event_timestamp=end_time,
+                            framework=LLMFrameworkEnum.AG2,
+                            name=model_name,
+                            data=StreamEventData(
+                                input=str(sanitized_input),
+                                output="completed",
+                            ),
+                            usage_info=UsageInfo(
+                                token_usage=TokenUsageBaseModel(),
+                                num_llm_calls=1,
+                            ),
+                            UUID=start_uuids.get(id(h)),
+                        )
                     )
-                )
-                with handler._lock:
-                    handler.last_call_ts = end_time
+                    with h._lock:
+                        h.last_call_ts = end_time
                 return result
             except Exception as e:
-                handler.step_manager.push_intermediate_step(
-                    IntermediateStepPayload(
-                        event_type=IntermediateStepType.LLM_END,
-                        span_event_timestamp=time.time(),
-                        framework=LLMFrameworkEnum.AG2,
-                        name=model_name,
-                        data=StreamEventData(
-                            input=str(kwargs),
-                            output=str(e),
-                        ),
-                        usage_info=UsageInfo(
-                            token_usage=TokenUsageBaseModel(),
-                        ),
-                        UUID=start_uuid,
+                err_time = time.time()
+                for h in handlers:
+                    h.step_manager.push_intermediate_step(
+                        IntermediateStepPayload(
+                            event_type=IntermediateStepType.LLM_END,
+                            span_event_timestamp=err_time,
+                            framework=LLMFrameworkEnum.AG2,
+                            name=model_name,
+                            data=StreamEventData(
+                                input=str(sanitized_input),
+                                output=f"error: {type(e).__name__}",
+                            ),
+                            usage_info=UsageInfo(
+                                token_usage=TokenUsageBaseModel(),
+                            ),
+                            UUID=start_uuids.get(id(h)),
+                        )
                     )
-                )
-                with handler._lock:
-                    handler.last_call_ts = time.time()
+                    with h._lock:
+                        h.last_call_ts = err_time
                 raise
 
         OpenAIWrapper.create = patched_create
@@ -143,10 +152,9 @@ class AG2ProfilerHandler(BaseProfilerCallback):
     def unpatch(self) -> None:
         """Restore original AG2 methods."""
         with AG2ProfilerHandler._patch_lock:
-            if AG2ProfilerHandler._patch_count <= 0:
-                return
-            AG2ProfilerHandler._patch_count -= 1
-            if AG2ProfilerHandler._patch_count > 0:
+            if self in AG2ProfilerHandler._handlers:
+                AG2ProfilerHandler._handlers.remove(self)
+            if AG2ProfilerHandler._handlers:
                 return  # Other handlers still active
             if AG2ProfilerHandler._original_create is None:
                 return

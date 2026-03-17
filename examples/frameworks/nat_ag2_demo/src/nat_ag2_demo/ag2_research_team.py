@@ -95,7 +95,7 @@ async def ag2_research_team(
         group_manager_args={"llm_config": llm_config},
     )
 
-    result, ctx, last = initiate_group_chat(
+    result, _ctx, _last = initiate_group_chat(
         pattern=pattern,
         messages=config.task,
         max_rounds=config.max_rounds,

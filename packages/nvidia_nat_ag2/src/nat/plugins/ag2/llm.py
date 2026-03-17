@@ -41,6 +41,7 @@ async def openai_ag2(
     llm_config: OpenAIModelConfig,
     _builder: Builder,
 ) -> AsyncGenerator[LLMConfig, None]:
+    """Yield an AG2 LLMConfig for OpenAI."""
     config_dict = {
         "api_type": "openai",
         "model": llm_config.model,
@@ -63,6 +64,7 @@ async def nim_ag2(
     llm_config: NIMModelConfig,
     _builder: Builder,
 ) -> AsyncGenerator[LLMConfig, None]:
+    """Yield an AG2 LLMConfig for NVIDIA NIM."""
     config_dict = {
         "api_type": "openai",
         "model": llm_config.model,
@@ -87,6 +89,7 @@ async def azure_ag2(
     llm_config: AzureOpenAIModelConfig,
     _builder: Builder,
 ) -> AsyncGenerator[LLMConfig, None]:
+    """Yield an AG2 LLMConfig for Azure OpenAI."""
     if not llm_config.api_base:
         raise ValueError(
             "api_base is required for Azure OpenAI configs"
