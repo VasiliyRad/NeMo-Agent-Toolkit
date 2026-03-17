@@ -1,0 +1,19 @@
+[build-system]
+requires = ["setuptools>=64", "setuptools_dynamic_dependencies"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "nat-ag2-demo"
+dynamic = ["version", "dependencies"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["nat_ag2_demo.*"]
+
+[tool.setuptools_dynamic_dependencies]
+dependencies = [
+    "nvidia-nat[ag2,eval,test] == {version}",
+]
+
+[project.entry-points.'nat.components']
+nat_ag2_demo = "nat_ag2_demo.register"
