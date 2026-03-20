@@ -36,6 +36,7 @@ _library_instrumented = {
     "adk": False,
     "strands": False,
     "autogen": False,
+    "ag2": False,
 }
 
 callback_handler_var: ContextVar[Any | None] = ContextVar("callback_handler_var", default=None)
@@ -184,6 +185,19 @@ def set_framework_profiler_handler(
                     logger.warning(
                         "AutoGen profiler not available. " +
                         "Install NAT with AutoGen extras: pip install 'nvidia-nat[autogen]'. Error: %s",
+                        e)
+
+            if LLMFrameworkEnum.AG2 in frameworks and not _library_instrumented["ag2"]:
+                try:
+                    from nat.plugins.ag2.callback_handler import AG2ProfilerHandler
+                    handler = AG2ProfilerHandler()
+                    handler.instrument()
+                    _library_instrumented["ag2"] = True
+                    logger.debug("AG2 callback handler registered")
+                except ImportError as e:
+                    logger.warning(
+                        "AG2 profiler not available. " +
+                        "Install NAT with AG2 extras: pip install 'nvidia-nat[ag2]'. Error: %s",
                         e)
 
             # IMPORTANT: actually call the wrapped function as an async context manager

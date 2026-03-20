@@ -13,6 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from . import ag2_async_team  # noqa: F401 # pylint: disable=W0611     #imported for side effects (registration)
 from . import ag2_research_team  # noqa: F401 # pylint: disable=W0611     #imported for side effects (registration)
 from . import ag2_team  # noqa: F401 # pylint: disable=W0611     #imported for side effects (registration)
 from . import traffic_status_tool  # noqa: F401 # pylint: disable=W0611     #imported for side effects (registration)

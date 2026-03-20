@@ -181,6 +181,7 @@ We would like to thank the following groups for their contribution to the toolki
 
 In addition, we would like to thank the following open source projects that made NeMo Agent Toolkit possible:
 
+- [AG2](https://github.com/ag2ai/ag2)
 - [Agent2Agent (A2A) Protocol](https://github.com/a2aproject/A2A)
 - [CrewAI](https://github.com/crewAIInc/crewAI)
 - [Dynamo](https://github.com/ai-dynamo/dynamo)
@@ -189,7 +190,6 @@ In addition, we would like to thank the following open source projects that made
 - [LangChain](https://github.com/langchain-ai/langchain)
 - [Llama-Index](https://github.com/run-llama/llama_index)
 - [Mem0ai](https://github.com/mem0ai/mem0)
-- [AG2](https://github.com/ag2ai/ag2)
 - [Microsoft AutoGen](https://github.com/microsoft/autogen)
 - [MinIO](https://github.com/minio/minio)
 - [Model Context Protocol (MCP)](https://github.com/modelcontextprotocol/modelcontextprotocol)
