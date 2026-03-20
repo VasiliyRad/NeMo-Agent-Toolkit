@@ -65,7 +65,7 @@ async def ag2_research_team(
         FunctionInfo wrapping the research team callable.
     """
     from autogen import ConversableAgent
-    from autogen.agentchat import initiate_group_chat
+    from autogen.agentchat import a_initiate_group_chat
     from autogen.agentchat.group.patterns import AutoPattern
 
     llm_config = await builder.get_llm(config.llm_name, wrapper_type=LLMFrameworkEnum.AG2)
@@ -102,7 +102,7 @@ async def ag2_research_team(
             group_manager_args={"llm_config": llm_config},
         )
 
-        result, _ctx, _last = initiate_group_chat(
+        result, _ctx, _last = await a_initiate_group_chat(
             pattern=pattern,
             messages=task,
             max_rounds=config.max_rounds,

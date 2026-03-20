@@ -125,9 +125,9 @@ async def ag2_async_team(config: AG2AsyncTeamConfig, builder: Builder) -> AsyncI
 
                 return "The workflow finished but no output was generated."
 
-            except Exception as e:
+            except Exception:
                 logger.exception("Error in AG2 async team workflow")
-                return f"Error occurred during AG2 async team workflow: {e!s}"
+                return "An internal error occurred during the AG2 async team workflow."
 
         yield FunctionInfo.from_fn(_ag2_async_team_workflow)
 

@@ -34,6 +34,8 @@ A quick example using the AG2 framework (formerly AutoGen), showcasing a multi-a
   - [Run the Workflow](#run-the-workflow)
     - [Set up the MCP Server](#set-up-the-mcp-server)
     - [Expected Output](#expected-output)
+  - [Async Workflow](#async-workflow)
+  - [Research Team Example](#research-team-example)
   - [Observability with Phoenix](#observability-with-phoenix)
     - [Start Phoenix Server](#start-phoenix-server)
     - [Run with Tracing Enabled](#run-with-tracing-enabled)
@@ -43,15 +45,18 @@ A quick example using the AG2 framework (formerly AutoGen), showcasing a multi-a
     - [Run the Evaluation](#run-the-evaluation)
     - [Understanding Evaluation Results](#understanding-evaluation-results)
   - [Architecture](#architecture)
+    - [Async Execution](#async-execution)
     - [Tool Integration](#tool-integration)
+  - [Available Configs](#available-configs)
 
 ## Key Features
 
 - **AG2 Framework Integration:** Demonstrates NVIDIA NeMo Agent Toolkit support for AG2 (formerly AutoGen) alongside other frameworks like LangChain/LangGraph and Semantic Kernel.
+- **Native Async Support:** All workflows use AG2's `a_initiate_group_chat` for non-blocking async execution, with tools awaited natively via `async`/`await`.
 - **Multi-Agent Collaboration:** Shows two specialized agents working together — a TrafficAgent for data retrieval and a FinalResponseAgent for response formatting.
 - **Time-Aware Traffic Status:** Provides realistic traffic information that varies based on time of day (morning rush, evening rush, off-peak hours).
 - **Unified Tool Integration:** Uses the unified abstraction provided by the toolkit to integrate both local tools (traffic status) and MCP tools (time service) without framework-specific code.
-- **AutoPattern Group Chat:** Uses AG2's `ConversableAgent` with `AutoPattern` and `initiate_group_chat` for structured agent communication.
+- **AutoPattern Group Chat:** Uses AG2's `ConversableAgent` with `AutoPattern` and `a_initiate_group_chat` for structured agent communication.
 
 ## Prerequisites
 
@@ -125,6 +130,28 @@ nat run --config_file examples/frameworks/nat_ag2_demo/configs/config.yml --inpu
 Workflow Result:
 ["The current traffic conditions on the 405 South are as follows:\n\n* Segment: Mulholland Drive to LAX\n* Traffic Conditions: Light\n\nIt appears that traffic is relatively clear on the 405 South.\n\nAPPROVE"]
 ```
+
+## Async Workflow
+
+The `config-async.yml` config demonstrates the same traffic workflow using a dedicated async workflow type (`ag2_async_team`). This config is functionally identical to the default but uses a separate workflow registration to clearly distinguish the async execution path:
+
+```bash
+nat run --config_file examples/frameworks/nat_ag2_demo/configs/config-async.yml \
+  --input "What is the current traffic on the 405 South?"
+```
+
+Both `config.yml` and `config-async.yml` use AG2's `a_initiate_group_chat` for async execution. The async config exists as an explicit example of the async pattern for reference.
+
+## Research Team Example
+
+The `config-research.yml` config demonstrates a different agent pattern — a researcher and writer agent collaborate to produce a structured research summary:
+
+```bash
+nat run --config_file examples/frameworks/nat_ag2_demo/configs/config-research.yml \
+  --input "What are the latest advances in quantum computing?"
+```
+
+This config uses the `ag2_research_team` workflow type which wraps the AG2 research agents as a NAT tool, invoked by a `react_agent` orchestrator.
 
 ## Observability with Phoenix
 
@@ -222,7 +249,17 @@ The AG2 workflow consists of two main agents:
    - Provides clear, concise answers to user queries
    - Terminates the conversation with "APPROVE"
 
-The agents communicate through AG2's `AutoPattern` with `initiate_group_chat`. A `ConversableAgent` with `human_input_mode="NEVER"` serves as both the user initiator and tool executor — tool calls from TrafficAgent are routed to it for execution, keeping the group chat flow self-contained.
+The agents communicate through AG2's `AutoPattern` with `a_initiate_group_chat`. A `ConversableAgent` with `human_input_mode="NEVER"` serves as both the user initiator and tool executor — tool calls from TrafficAgent are routed to it for execution, keeping the group chat flow self-contained.
+
+### Async Execution
+
+All AG2 demo workflows use native async execution:
+
+- **`a_initiate_group_chat`** orchestrates agent turns without blocking the event loop
+- **Tool functions** are async coroutines (`await fn.acall_invoke(...)`) executed natively by AG2's `a_execute_function`, which checks `is_coroutine_callable(func)` and awaits the result
+- **Streaming tools** collect results into a single response since AG2 tools return a single value
+
+This replaces the previous approach of running async tool calls through a `ThreadPoolExecutor`, eliminating unnecessary thread overhead.
 
 ### Tool Integration
 
@@ -232,3 +269,12 @@ This example demonstrates the unified approach to tool integration provided by N
 - **MCP tools** (like `current_datetime`) are configured in YAML using the `mcp_client` function group provided by the toolkit
 
 Both types of tools are passed to AG2 agents through the `builder.get_tools()` method, which automatically wraps them for the AG2 framework. This eliminates the need for framework-specific MCP integration code and provides a consistent interface across all supported frameworks (AG2, AutoGen, LangChain, Semantic Kernel, and others).
+
+## Available Configs
+
+| Config | Workflow Type | Description |
+|--------|--------------|-------------|
+| `config.yml` | `ag2_team` | Default traffic workflow with async group chat |
+| `config-async.yml` | `ag2_async_team` | Explicit async variant of the traffic workflow |
+| `config-research.yml` | `ag2_research_team` | Research team with researcher + writer agents |
+| `config-eval.yml` | `ag2_team` | Traffic workflow with Phoenix tracing and evaluation |

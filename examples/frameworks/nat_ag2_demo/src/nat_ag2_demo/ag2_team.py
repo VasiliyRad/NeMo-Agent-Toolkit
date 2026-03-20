@@ -52,7 +52,7 @@ async def ag2_team(config: AG2TeamConfig, builder: Builder) -> AsyncIterator[Fun
 
     A query-processing agent retrieves data using tools while a final response
     agent formats the result. The user ConversableAgent acts as the initiator
-    and tool executor. AutoPattern with initiate_group_chat orchestrates turns.
+    and tool executor. AutoPattern with a_initiate_group_chat orchestrates turns.
 
     Args:
         config: Configuration for the AG2 team.
@@ -62,7 +62,7 @@ async def ag2_team(config: AG2TeamConfig, builder: Builder) -> AsyncIterator[Fun
         FunctionInfo wrapping the workflow callable.
     """
     from autogen import ConversableAgent
-    from autogen.agentchat import initiate_group_chat
+    from autogen.agentchat import a_initiate_group_chat
     from autogen.agentchat.group.patterns import AutoPattern
 
     try:
@@ -110,7 +110,7 @@ async def ag2_team(config: AG2TeamConfig, builder: Builder) -> AsyncIterator[Fun
                     group_manager_args={"llm_config": llm_config},
                 )
 
-                result, _ctx, _last = initiate_group_chat(
+                result, _ctx, _last = await a_initiate_group_chat(
                     pattern=pattern,
                     messages=user_input,
                     max_rounds=config.max_rounds,
@@ -123,9 +123,9 @@ async def ag2_team(config: AG2TeamConfig, builder: Builder) -> AsyncIterator[Fun
 
                 return "The workflow finished but no output was generated."
 
-            except Exception as e:
+            except Exception:
                 logger.exception("Error in AG2 team workflow")
-                return f"Error occurred during AG2 team workflow: {e!s}"
+                return "An internal error occurred during the AG2 team workflow."
 
         yield FunctionInfo.from_fn(_ag2_team_workflow)
 

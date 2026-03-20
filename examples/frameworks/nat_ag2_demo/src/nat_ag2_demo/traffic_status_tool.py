@@ -125,6 +125,12 @@ async def traffic_status(_config: TrafficStatusToolConfig, _builder: Builder) ->
                     f"Supported highways: 405-south, 405-north, 110-south, 110-north, "
                     f"10-east, 10-west, 210-east, 210-west.")
 
+        if not isinstance(hour, int):
+            try:
+                hour = int(hour)
+            except (ValueError, TypeError):
+                return f"Invalid hour '{hour}'. Please provide an hour between 0 and 23."
+
         if not 0 <= hour <= 23:
             return f"Invalid hour '{hour}'. Please provide an hour between 0 and 23."
 
