@@ -13,6 +13,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# path-check-skip-file
+
 # This config demonstrates an AG2 multi-agent workflow that retrieves
 # Los Angeles traffic information based on the current time of day.
 
@@ -21,7 +23,13 @@ general:
     logging:
       console:
         _type: console
-        level: debug
+        level: info
+    # Phoenix tracing requires: uv pip install "nvidia-nat[phoenix]" arize-phoenix
+    tracing:
+      phoenix:
+        _type: phoenix
+        endpoint: http://localhost:6006/v1/traces
+        project: nat_ag2_demo
 
 llms:
   nim_llm:
@@ -31,6 +39,15 @@ llms:
     base_url: https://integrate.api.nvidia.com/v1
     temperature: 0.0
     max_tokens: 1024
+
+  # Evaluator LLM (used for evaluation metrics)
+  evaluator_llm:
+    _type: nim
+    model_name: meta/llama-3.3-70b-instruct
+    api_key: ${NVIDIA_API_KEY}
+    base_url: https://integrate.api.nvidia.com/v1
+    temperature: 0.0
+    max_tokens: 2048
 
 function_groups:
   mcp_functions:
@@ -77,3 +94,38 @@ workflow:
     The TrafficAgent has already collected the traffic data using tools - DO NOT call any tools yourself.
     Your role is to provide a polished, user-friendly response based on the information already gathered.
     Format the traffic information nicely for the user, then say 'APPROVE'.
+
+eval:
+  general:
+    output:
+      dir: ./.tmp/nat/examples/frameworks/nat_ag2_demo/traffic_eval/
+      cleanup: true
+    dataset:
+      _type: json
+      file_path: examples/frameworks/nat_ag2_demo/data/toy_data.json
+    profiler:
+      token_uniqueness_forecast: true
+      workflow_runtime_forecast: true
+      compute_llm_metrics: true
+      csv_exclude_io_text: true
+      prompt_caching_prefixes:
+        enable: true
+        min_frequency: 0.1
+      bottleneck_analysis:
+        enable_nested_stack: true
+      concurrency_spike_analysis:
+        enable: true
+        spike_threshold: 5
+
+  evaluators:
+    accuracy:
+      _type: ragas
+      metric: AnswerAccuracy
+      llm_name: evaluator_llm
+    groundedness:
+      _type: ragas
+      metric: ResponseGroundedness
+      llm_name: evaluator_llm
+    trajectory_accuracy:
+      _type: trajectory
+      llm_name: evaluator_llm

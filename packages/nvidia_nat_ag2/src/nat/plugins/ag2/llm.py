@@ -24,7 +24,7 @@ from collections.abc import AsyncGenerator
 
 from autogen import LLMConfig
 
-from nat.builder import Builder
+from nat.builder.builder import Builder
 from nat.builder.framework_enum import LLMFrameworkEnum
 from nat.cli.register_workflow import register_llm_client
 from nat.data_models.common import get_secret_value
@@ -44,11 +44,11 @@ async def openai_ag2(
     """Yield an AG2 LLMConfig for OpenAI."""
     config_dict = {
         "api_type": "openai",
-        "model": llm_config.model,
+        "model": llm_config.model_name,
         "api_key": get_secret_value(llm_config.api_key),
     }
-    if llm_config.api_base:
-        config_dict["base_url"] = llm_config.api_base
+    if llm_config.base_url:
+        config_dict["base_url"] = llm_config.base_url
 
     yield LLMConfig(
         config_dict,
@@ -67,10 +67,10 @@ async def nim_ag2(
     """Yield an AG2 LLMConfig for NVIDIA NIM."""
     config_dict = {
         "api_type": "openai",
-        "model": llm_config.model,
+        "model": llm_config.model_name,
         "api_key": get_secret_value(llm_config.api_key),
         "base_url": (
-            llm_config.api_base
+            llm_config.base_url
             or "https://integrate.api.nvidia.com/v1"
         ),
     }
@@ -90,15 +90,15 @@ async def azure_ag2(
     _builder: Builder,
 ) -> AsyncGenerator[LLMConfig, None]:
     """Yield an AG2 LLMConfig for Azure OpenAI."""
-    if not llm_config.api_base:
+    if not llm_config.azure_endpoint:
         raise ValueError(
-            "api_base is required for Azure OpenAI configs"
+            "azure_endpoint is required for Azure OpenAI configs"
         )
     config_dict = {
         "api_type": "azure",
-        "model": llm_config.model,
+        "model": llm_config.azure_deployment,
         "api_key": get_secret_value(llm_config.api_key),
-        "base_url": llm_config.api_base,
+        "base_url": llm_config.azure_endpoint,
         "api_version": llm_config.api_version,
     }
 

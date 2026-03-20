@@ -15,37 +15,32 @@
 
 """AG2 (formerly AutoGen) research team demo for NAT.
 
-Two agents (researcher + writer) collaborate via GroupChat
+Two agents (researcher + writer) collaborate via AutoPattern GroupChat
 to produce a research summary with NAT profiling integration.
 """
 
+from collections.abc import AsyncIterator
+
 from pydantic import Field
 
-from autogen import ConversableAgent
-from autogen.agentchat import initiate_group_chat
-from autogen.agentchat.group.patterns import AutoPattern
-
-from nat.builder import Builder
+from nat.builder.builder import Builder
 from nat.builder.framework_enum import LLMFrameworkEnum
+from nat.builder.function_info import FunctionInfo
 from nat.cli.register_workflow import register_function
+from nat.data_models.component_ref import LLMRef
 from nat.data_models.function import FunctionBaseConfig
 
 
-class AG2ResearchConfig(FunctionBaseConfig):
+class AG2ResearchConfig(FunctionBaseConfig, name="ag2_research_team"):
     """Configuration for the AG2 research team."""
 
-    task: str = Field(
-        default="Research and summarize recent advances "
-        "in AI agent frameworks.",
-        description="The research topic.",
+    llm_name: LLMRef = Field(description="NAT LLM config name.")
+    max_rounds: int = Field(default=10, description="Max GroupChat rounds.")
+    researcher_instructions: str = Field(
+        description="System message for the researcher agent.",
     )
-    llm_config: str = Field(
-        default="default",
-        description="NAT LLM config name.",
-    )
-    max_rounds: int = Field(
-        default=10,
-        description="Max GroupChat rounds.",
+    writer_instructions: str = Field(
+        description="System message for the writer agent.",
     )
 
 
@@ -56,55 +51,68 @@ class AG2ResearchConfig(FunctionBaseConfig):
 async def ag2_research_team(
     config: AG2ResearchConfig,
     builder: Builder,
-) -> str:
-    """Run a 2-agent research team with AG2."""
-    llm_config = await builder.get_llm(
-        config.llm_config,
-        wrapper_type=LLMFrameworkEnum.AG2,
-    )
+) -> AsyncIterator[FunctionInfo]:
+    """Run a 2-agent research team with AG2.
 
-    researcher = ConversableAgent(
-        name="researcher",
-        system_message=(
-            "You are a research specialist. Investigate the "
-            "topic thoroughly. Present key facts, data, and "
-            "sources in a structured format."
-        ),
-        llm_config=llm_config,
-    )
+    A researcher agent investigates the configured topic and a writer agent
+    synthesises the findings into a structured summary.
 
-    writer = ConversableAgent(
-        name="writer",
-        system_message=(
-            "You are a technical writer. Synthesize the "
-            "researcher's findings into a clear, structured "
-            "summary with: Key Findings, Analysis, and "
-            "Recommendations. Keep it under 500 words."
-        ),
-        llm_config=llm_config,
-    )
+    Args:
+        config: Configuration for the research team.
+        builder: The NAT workflow builder.
 
-    user = ConversableAgent(
-        name="user", human_input_mode="NEVER"
-    )
+    Yields:
+        FunctionInfo wrapping the research team callable.
+    """
+    from autogen import ConversableAgent
+    from autogen.agentchat import initiate_group_chat
+    from autogen.agentchat.group.patterns import AutoPattern
 
-    pattern = AutoPattern(
-        initial_agent=researcher,
-        agents=[researcher, writer],
-        user_agent=user,
-        group_manager_args={"llm_config": llm_config},
-    )
+    llm_config = await builder.get_llm(config.llm_name, wrapper_type=LLMFrameworkEnum.AG2)
 
-    result, _ctx, _last = initiate_group_chat(
-        pattern=pattern,
-        messages=config.task,
-        max_rounds=config.max_rounds,
-    )
+    async def _ag2_research_team(task: str) -> str:
+        """Run the AG2 research team on the given task.
 
-    # Return last substantive message
-    for msg in reversed(result.chat_history):
-        content = msg.get("content", "")
-        if content and "TERMINATE" not in content:
-            return content
+        Args:
+            task: The research topic or question to investigate.
 
-    return "Research complete."
+        Returns:
+            A structured research summary.
+        """
+        researcher = ConversableAgent(
+            name="researcher",
+            system_message=config.researcher_instructions,
+            llm_config=llm_config,
+            human_input_mode="NEVER",
+        )
+
+        writer = ConversableAgent(
+            name="writer",
+            system_message=config.writer_instructions,
+            llm_config=llm_config,
+            human_input_mode="NEVER",
+        )
+
+        user = ConversableAgent(name="user", human_input_mode="NEVER")
+
+        pattern = AutoPattern(
+            initial_agent=researcher,
+            agents=[researcher, writer],
+            user_agent=user,
+            group_manager_args={"llm_config": llm_config},
+        )
+
+        result, _ctx, _last = initiate_group_chat(
+            pattern=pattern,
+            messages=task,
+            max_rounds=config.max_rounds,
+        )
+
+        for msg in reversed(result.chat_history):
+            content = msg.get("content") or ""
+            if content and "TERMINATE" not in content:
+                return content
+
+        return "Research complete."
+
+    yield FunctionInfo.from_fn(_ag2_research_team)

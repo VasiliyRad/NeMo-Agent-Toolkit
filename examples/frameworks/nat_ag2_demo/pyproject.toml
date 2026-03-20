@@ -14,21 +14,32 @@
 # limitations under the License.
 
 [build-system]
-requires = ["setuptools>=64", "setuptools_dynamic_dependencies"]
 build-backend = "setuptools.build_meta"
+requires = ["setuptools>=64", "setuptools-scm>=8", "setuptools_dynamic_dependencies>=1.0.0"]
 
-[project]
-name = "nat-ag2-demo"
-dynamic = ["version", "dependencies"]
+[tool.setuptools_scm]
+git_describe_command = "git describe --long --first-parent"
+root = "../../.."
 
 [tool.setuptools.packages.find]
 where = ["src"]
 include = ["nat_ag2_demo.*"]
 
+[project]
+name = "nat-ag2-demo"
+dynamic = ["version", "dependencies"]
+requires-python = ">=3.11,<3.14"
+description = "AG2 (formerly AutoGen) Workflow Example"
+keywords = ["ai", "agents", "ag2", "autogen", "multi-agent"]
+classifiers = ["Programming Language :: Python"]
+
 [tool.setuptools_dynamic_dependencies]
 dependencies = [
-    "nvidia-nat[ag2,eval,test] == {version}",
+    "nvidia-nat[ag2,eval,mcp,test] == {version}",
 ]
+
+[tool.uv.sources]
+nvidia-nat = { path = "../../..", editable = true }
 
 [project.entry-points.'nat.components']
 nat_ag2_demo = "nat_ag2_demo.register"

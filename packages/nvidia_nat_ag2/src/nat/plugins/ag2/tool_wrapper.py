@@ -21,7 +21,7 @@ from typing import Any
 
 from autogen.tools import Tool
 
-from nat.builder import Builder
+from nat.builder.builder import Builder
 from nat.builder.framework_enum import LLMFrameworkEnum
 from nat.cli.register_workflow import register_tool_wrapper
 from nat.builder.function import Function
