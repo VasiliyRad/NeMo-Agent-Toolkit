@@ -38,3 +38,8 @@ dependencies = [
 
 [project.entry-points.'nat.components']
 nat_ag2 = "nat.plugins.ag2.register"
+
+
+[tool.uv.sources]
+nvidia-nat-core = { path = "../nvidia_nat_core", editable = true }
+nvidia-nat-test = { path = "../nvidia_nat_test", editable = true }
