@@ -278,3 +278,4 @@ Both types of tools are passed to AG2 agents through the `builder.get_tools()` m
 | `config-async.yml` | `ag2_async_team` | Explicit async variant of the traffic workflow |
 | `config-research.yml` | `ag2_research_team` | Research team with researcher + writer agents |
 | `config-eval.yml` | `ag2_team` | Traffic workflow with Phoenix tracing and evaluation |
+
